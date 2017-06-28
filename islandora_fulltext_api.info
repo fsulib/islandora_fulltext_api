@@ -1,0 +1,8 @@
+name = Islandora Fulltext API
+description = Module for getting aggregated fulltext of hierarchical objects 
+dependencies[] = islandora
+dependencies[] = islandora_book
+dependencies[] = islandora_newspaper
+package = Islandora Tools
+core = 7.x
+version = 7.x-dev
