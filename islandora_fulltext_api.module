@@ -11,38 +11,67 @@
 function islandora_fulltext_api_menu() {
   $items = array();
 
-  $items['islandora/fulltext/%'] = array (
+  $items['islandora/fulltext/%/%'] = array (
     'page callback' => 'islandora_fulltext_api_responder',
-    'page arguments' => array(2),
+    'page arguments' => array(2, 3),
     'access callback' => TRUE,
   );
 
   return $items;
 }
 
-function islandora_fulltext_api_responder($pid) {
+function islandora_fulltext_api_responder($pid, $format) {
   $object = islandora_object_load($pid);
   if (!$object) {
     $response = "Error: '{$pid}' not a valid PID.";
   }
+  else if (!in_array($object->models[0], array('islandora:bookCModel'))) { // Later add islandora:newspaperCModel
+    $response = "Error: '{$pid}' not a book or newspaper.";
+  }
+  else if ($format != 'ocr' && $format != 'hocr') {
+    $response = "Error: '{$format}' not a valid format. Only 'ocr' and 'hocr' allowed.";
+  }
   else {
-    $response = islandora_fulltext_api_get_fulltext($object);
+    $response = islandora_fulltext_api_get_fulltext($object, $format);
   }
 
-  echo $response; 
+  print_r($response); 
   drupal_exit();
 }
 
-function islandora_fulltext_api_get_fulltext($object) {
-  $pids = islandora_fulltext_api_get_page_pids($pid);
-  $fulltext = islandora_fulltext_api_aggregate_page_fulltext($pids);
+function islandora_fulltext_api_get_fulltext($object, $format) {
+  $pids = islandora_fulltext_api_get_page_pids($object->id);
+  $fulltext = islandora_fulltext_api_aggregate_page_fulltext($pids, $format);
   return $fulltext;
 }
 
 function islandora_fulltext_api_get_page_pids($pid) {
-  
+  $query = <<<EOQ
+SELECT ?pid ?seq
+FROM <#ri>
+WHERE {
+  ?pid <http://islandora.ca/ontology/relsext#isPageOf> <info:fedora/{$pid}> .
+  ?pid <http://islandora.ca/ontology/relsext#isPageNumber> ?seq 
+}
+EOQ;
+  $connection = islandora_get_tuque_connection();
+  $results = $connection->repository->ri->sparqlQuery($query);
+  $pids = array();
+  foreach ($results as $result) {
+    $pids[] = $result['pid']['value'];
+  }
+
+  return $pids;
 }
 
-
-function islandora_fulltext_api_aggregate_page_fulltext($pids) {
+function islandora_fulltext_api_aggregate_page_fulltext($pids, $format) {
+  $fulltext = ($format == 'ocr' ? "<xmp>" : "");
+  foreach ($pids as $pid) {
+    $object = islandora_object_load($pid);
+    $datastream = strtoupper($format);
+    $fulltext .= $object["{$datastream}"]->content;
+    $fulltext .= ($format == 'ocr' ? "\n" : "<br/>");
+  }
+  fulltext .= ($format == 'ocr' ? "</xmp>" : "");
+  return $fulltext;
 }
