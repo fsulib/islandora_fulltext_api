@@ -72,6 +72,6 @@ function islandora_fulltext_api_aggregate_page_fulltext($pids, $format) {
     $fulltext .= $object["{$datastream}"]->content;
     $fulltext .= ($format == 'ocr' ? "\n" : "<br/>");
   }
-  fulltext .= ($format == 'ocr' ? "</xmp>" : "");
+  $fulltext .= ($format == 'ocr' ? "</xmp>" : "");
   return $fulltext;
 }
