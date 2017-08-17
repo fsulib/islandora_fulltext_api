@@ -24,25 +24,33 @@ function islandora_fulltext_api_responder($pid, $format) {
   $object = islandora_object_load($pid);
   if (!$object) {
     $response = "Error: '{$pid}' not a valid PID.";
+    echo $response;
+    drupal_exit();
   }
   else if (!in_array($object->models[0], array('islandora:bookCModel'))) { // Later add islandora:newspaperCModel
     $response = "Error: '{$pid}' not a book or newspaper.";
+    echo $response;
+    drupal_exit();
   }
   else if ($format != 'ocr' && $format != 'hocr') {
     $response = "Error: '{$format}' not a valid format. Only 'ocr' and 'hocr' allowed.";
+    echo $response;
+    drupal_exit();
   }
   else {
-    $response = islandora_fulltext_api_get_fulltext($object, $format);
+    $filename = islandora_fulltext_api_get_fulltext($object, $format);
+    $mime = ($format == 'ocr' ? "text/plain" : "text/html");
+    drupal_add_http_header('Content-type', "{$mime}; charset=utf-8");
+    drupal_add_http_header('Content-Disposition', "attachment; filename='{$filename}'");
+    echo file_get_contents('temporary://' . $filename);
   }
 
-  print_r($response); 
-  drupal_exit();
 }
 
 function islandora_fulltext_api_get_fulltext($object, $format) {
   $pids = islandora_fulltext_api_get_page_pids($object->id);
-  $fulltext = islandora_fulltext_api_aggregate_page_fulltext($pids, $format);
-  return $fulltext;
+  $filename = islandora_fulltext_api_aggregate_page_fulltext($object, $pids, $format);
+  return $filename;
 }
 
 function islandora_fulltext_api_get_page_pids($pid) {
@@ -64,14 +72,18 @@ EOQ;
   return $pids;
 }
 
-function islandora_fulltext_api_aggregate_page_fulltext($pids, $format) {
-  $fulltext = ($format == 'ocr' ? "<xmp>" : "");
+function islandora_fulltext_api_aggregate_page_fulltext($object, $pids, $format) {
+  $fulltext = ""; 
   foreach ($pids as $pid) {
     $object = islandora_object_load($pid);
     $datastream = strtoupper($format);
     $fulltext .= $object["{$datastream}"]->content;
     $fulltext .= ($format == 'ocr' ? "\n" : "<br/>");
   }
-  $fulltext .= ($format == 'ocr' ? "</xmp>" : "");
-  return $fulltext;
+
+  $replaced_pid = str_replace(":", "_", $object->id);
+  $extension = ($format == 'ocr' ? "txt" : "html");
+  $filename = "{$replaced_pid}_{$format}.{$extension}";
+  $file = file_unmanaged_save_data($fulltext, "temporary://" . $filename, FILE_EXISTS_REPLACE);
+  return $filename;
 }
