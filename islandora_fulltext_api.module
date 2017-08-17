@@ -72,7 +72,7 @@ EOQ;
   return $pids;
 }
 
-function islandora_fulltext_api_aggregate_page_fulltext($object, $pids, $format) {
+function islandora_fulltext_api_aggregate_page_fulltext($parent, $pids, $format) {
   $fulltext = ""; 
   foreach ($pids as $pid) {
     $object = islandora_object_load($pid);
@@ -81,7 +81,7 @@ function islandora_fulltext_api_aggregate_page_fulltext($object, $pids, $format)
     $fulltext .= ($format == 'ocr' ? "\n" : "<br/>");
   }
 
-  $replaced_pid = str_replace(":", "_", $object->id);
+  $replaced_pid = str_replace(":", "_", $parent->id);
   $extension = ($format == 'ocr' ? "txt" : "html");
   $filename = "{$replaced_pid}_{$format}.{$extension}";
   $file = file_unmanaged_save_data($fulltext, "temporary://" . $filename, FILE_EXISTS_REPLACE);
